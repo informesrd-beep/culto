@@ -294,17 +294,17 @@
                 <div className="w-full h-screen bg-slate-50 relative overflow-hidden font-sans text-slate-800 select-none">
                     
                     {/* --- BLOQUEO DE ORIENTACIÓN (MOBILE LANDSCAPE) --- */}
-                    {<div className="fixed inset-0 z-[9999] bg-slate-900 text-white flex flex-col items-center justify-center p-8 text-center hidden landscape:flex md:landscape:hidden">}
-                        {<div className="mb-6 animate-rotate text-blue-400">}
-                            {<Icon name="smartphone" size={64} />}
-                            {</div>}
-                        {<h2 className="text-2xl font-black mb-4">Gira tu dispositivo</h2>}
-                        {<p className="text-slate-300">}
-                            {Esta experiencia está diseñada para ser explorada en vertical.}
-                            {<br/><br/>}
-                            {Por favor, rota tu teléfono para continuar.}
-                            {</p>}
-                        {</div>}
+                    div className="fixed inset-0 z-[9999] bg-slate-900 text-white flex flex-col items-center justify-center p-8 text-center hidden landscape:flex md:landscape:hidden">
+                        <div className="mb-6 animate-rotate text-blue-400">
+                            <Icon name="smartphone" size={64} />
+                            </div>
+                        <h2 className="text-2xl font-black mb-4">Gira tu dispositivo</h2>
+                        <p className="text-slate-300">
+                            Esta experiencia está diseñada para ser explorada en vertical.
+                            <br/><br/>
+                            Por favor, rota tu teléfono para continuar.
+                            </p>
+                        </div>
 
                     {/* Header - Solo visible si NO hay nodo activo. AJUSTADO PARA MOVIL */}
                     {!activeNode && (
