@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Culto - Navegación Teológica</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        .perspective-1000 { perspective: 1000px; }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); border-radius: 10px; }
+        @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes zoom-in { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .animate-in { animation-fill-mode: both; }
+        .fade-in { animation-name: fade-in; }
+        .zoom-in { animation-name: zoom-in; }
+        .duration-300 { animation-duration: 300ms; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // --- COMPONENTE DE ICONOS (Mapeo de Lucide para CDN) ---
+        const Icon = ({ name, size = 24, className = "" }) => {
+            const icons = {
+                info: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>,
+                x: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>,
+                map: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>,
+                arrowLeft: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>,
+                maximize: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>,
+                scrollText: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M8 21h8a2 2 0 0 0 2-2v-9l-5-5H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2z"/><path d="M13 3.5V9h5.5"/><path d="M8 11h3"/><path d="M8 15h5"/><path d="M8 19h1"/></svg>
+            };
+            return icons[name] || null;
+        };
+
+        const CatechismPrezi = () => {
+            const [activeNode, setActiveNode] = useState(null);
+            const [showIntro, setShowIntro] = useState(true);
+            const [selectedCitation, setSelectedCitation] = useState(null);
+            const [isMapExpanded, setIsMapExpanded] = useState(false);
+
+            // --- BASE DE DATOS DE CITAS (Textos Completos ORIGINALES) ---
+            const citationDatabase = {
+                // CULTO
+                'CIC 2096': 'La adoración es el primer acto de la virtud de la religión. Adorar a Dios es reconocerle como Dios, como Creador y Salvador, Señor y Dueño de todo lo que existe, Amor infinito y misericordioso.',
+                'Mt 4, 10': 'Jesús le dice: "Al Señor tu Dios adorarás, y sólo a él darás culto".',
+                'CIC 971': 'La piedad de la Iglesia hacia la Santísima Virgen es un elemento intrínseco del culto cristiano. Este culto... aunque es singular (Hiperdulía), difiere esencialmente del culto de adoración que se da al Verbo encarnado...',
+                'CIC 2132': 'El honor tributado a las imágenes sagradas es una "veneración respetuosa" (Dulía), no una adoración, que sólo corresponde a Dios.',
+                'CIC 1674': 'La piedad religiosa del pueblo cristiano ha encontrado... su expresión en formas variadas: veneración de reliquias, visitas a santuarios, peregrinaciones, procesiones, el vía crucis, el rosario...',
+                'CIC 1675': 'Estas expresiones prolongan la vida litúrgica de la Iglesia, pero no la sustituyen.',
+                'CIC 2678': 'La piedad medieval de Occidente desarrolló la oración del Rosario como un resumen popular del Evangelio.',
+
+                // LITURGIA
+                'CIC 1069': 'La palabra "Liturgia" significa originariamente "obra o quehacer público", "servicio de parte de y en favor del pueblo". En la tradición cristiana quiere decir que el Pueblo de Dios toma parte en "la obra de Dios".',
+                'SC 7': 'Para realizar una obra tan grande, Cristo está siempre presente en su Iglesia, sobre todo en la acción litúrgica.',
+                'CIC 1113': 'Toda la vida litúrgica de la Iglesia gravita en torno al sacrificio eucarístico y los sacramentos.',
+                'SC 6': 'Por el Bautismo, los hombres son injertados en el misterio pascual de Cristo: mueren con Él, son sepultados con Él y resucitan con Él.',
+                'CIC 1174': 'El misterio de Cristo... penetra y transfigura el tiempo de cada día mediante la celebración de la Liturgia de las Horas.',
+                'Sal 119, 164': 'Siete veces al día te alabo por tus justos juicios.',
+                'CIC 1163': 'La Santa Madre Iglesia considera su deber celebrar la obra de salvación de su divino Esposo con un sagrado recuerdo, en días determinados a través del año.',
+                
+                // SACRAMENTALES
+                'CIC 1677': 'Se llaman sacramentales los signos sagrados instituidos por la Iglesia cuyo fin es preparar a los hombres para recibir el fruto de los sacramentos y santificar las diversas circunstancias de la vida.',
+                'CIC 1667': 'La Santa Madre Iglesia instituyó, además, los sacramentales. Estos son signos sagrados con los que, imitando de alguna manera a los sacramentos, se expresan efectos, sobre todo espirituales, obtenidos por la intercesión de la Iglesia.',
+                'CIC 1670': 'Los sacramentales no confieren la gracia del Espíritu Santo a la manera de los sacramentos, pero por la oración de la Iglesia preparan a recibirla y disponen a cooperar con ella...',
+                'CIC 1673': 'Cuando la Iglesia pide públicamente y con autoridad, en nombre de Jesucristo, que una persona o un objeto sea protegido contra las asechanzas del Maligno y sustraída a su dominio, se habla de exorcismo...',
+                '1 Tim 4, 5': 'Porque todo lo creado por Dios es bueno y nada se debe rechazar si se recibe con acción de gracias, pues queda santificado por la palabra de Dios y por la oración.',
+
+                // Exequias
+                'CIC 1684': 'Las exequias cristianas son una celebración litúrgica de la Iglesia. El ministerio de la Iglesia pretende aquí expresar la comunión eficaz con el difunto, hacerle participar en la asamblea... y anunciarle la vida eterna.',
+                'CIC 1688': 'La liturgia de la Palabra durante las exequias exige una preparación tanto más atenta cuanto que la asamblea presente allí puede incluir fieles poco asiduos a la liturgia y amigos del difunto que no son cristianos.',
+                '1 Tes 4, 14': 'Porque si creemos que Jesús murió y resucitó, así también Dios traerá con Jesús a los que durmieron en él.',
+                
+                'CIC 1570': 'Corresponde a los diáconos, entre otras cosas, asistir al obispo y a los presbíteros en la celebración de los divinos misterios, sobre todo de la Eucaristía y distribuirla, asistir al matrimonio... proclamar el Evangelio y predicar, presidir las exequias y entregarse a los diversos servicios de la caridad.',
+                'SC 35': 'Foméntense las celebraciones sagradas de la palabra de Dios... sobre todo en los lugares donde no hay sacerdote.',
+
+                // SACRAMENTOS
+                'CIC 1213': 'El santo Bautismo es el fundamento de toda la vida cristiana, el pórtico de la vida en el espíritu y la puerta que abre el acceso a los otros sacramentos.',
+                'Mt 28, 19': 'Id, pues, y haced discípulos a todas las gentes bautizándolas en el nombre del Padre y del Hijo y del Espíritu Santo.',
+                'CIC 1285': 'Con el Bautismo y la Eucaristía, el sacramento de la Confirmación constituye el conjunto de los "sacramentos de la iniciación cristiana".',
+                'Hch 8, 17': 'Entonces les imponían las manos y recibían el Espíritu Santo.',
+                'CIC 1322': 'La sagrada Eucaristía culmina la iniciación cristiana.',
+                'Lc 22, 19': 'Esto es mi cuerpo, que por vosotros es dado; haced esto en memoria mía.',
+                'CIC 1422': 'Los que se acercan al sacramento de la penitencia obtienen de la misericordia de Dios el perdón de los pecados cometidos contra Él.',
+                'Jn 20, 23': 'A quienes perdonéis los pecados, les quedan perdonados; a quienes se los retengáis, les quedan retenidos.',
+                'CIC 1499': 'Con la sagrada unción de los enfermos y con la oración de los presbíteros, toda la Iglesia entera encomienda a los enfermos al Señor.',
+                'Sant 5, 14': '¿Está enfermo alguno entre vosotros? Llame a los presbíteros de la Iglesia, y oren por él, ungiéndole con aceite en el nombre del Señor.',
+                'CIC 1536': 'El Orden es el sacramento gracias al cual la misión confiada por Cristo a sus Apóstoles sigue siendo ejercida en la Iglesia hasta el fin de los tiempos.',
+                'CIC 1601': 'La alianza matrimonial, por la que el varón y la mujer constituyen entre sí un consorcio de toda la vida...',
+                'Ef 5, 31-32': 'Por esto dejará el hombre a su padre y a su madre, y se unirá a su mujer, y los dos serán una sola carne.',
+
+                // ORACIÓN
+                'CIC 2759': 'Jesús "estaba orando en cierto lugar; cuando terminó, le dijo uno de sus discípulos: Señor, enséñanos a orar".',
+                'Mt 6, 9-13': 'Vosotros, pues, oraréis así: Padre nuestro que estás en los cielos, santificado sea tu nombre...',
+                'CIC 1083': 'Se comprende entonces que, en la liturgia, la Confesión de fe y los sacramentos estén orientados hacia la eficacia del diálogo entre Dios y el hombre...',
+                'CIC 2700': 'Por medio de su Palabra, Dios habla al hombre. Por medio de palabras, mentales o vocales, nuestra oración toma cuerpo.',
+                'Mt 6, 7': 'Y al orar, no uséis vanas repeticiones, como los gentiles, que piensan que por su palabrería serán oídos.',
+                'CIC 2705': 'La meditación es, sobre todo, una búsqueda. El espíritu trata de comprender el porqué y el cómo de la vida cristiana...',
+                'CIC 2708': 'La meditación hace intervenir al pensamiento, la imaginación, la emoción y el deseo.',
+                'Lc 2, 19': 'Pero María guardaba todas estas cosas, meditándolas en su corazón.',
+                'CIC 2709': 'La contemplación es mirada de fe, fijada en Jesús. "Yo le miro y él me mira"...',
+                'Sal 27, 8': 'Mi corazón ha dicho de ti: "Buscad mi rostro". Tu rostro buscaré, oh Señor.'
+            };
+
+            // --- CONFIGURACIÓN DE NODOS (CONTENIDO ORIGINAL COMPLETO) ---
+            const nodes = [
+                {
+                    id: 'culto',
+                    title: 'CULTO',
+                    subtitle: 'La respuesta del hombre a Dios',
+                    x: 0,
+                    y: -250,
+                    color: 'bg-amber-100 border-amber-500 text-amber-900',
+                    icon: <span className="text-5xl filter drop-shadow-sm leading-none select-none">💘</span>,
+                    mainRefs: [{ id: 'CIC 2096', type: 'cic' }, { id: 'Mt 4, 10', type: 'biblia' }],
+                    content: {
+                        description: '', 
+                        sections: [
+                            { title: 'Adoración (Latría)', items: ['Reconocimiento de Dios como Creador', 'Acto exclusivo para Dios'], refs: ['CIC 2096', 'Mt 4, 10'] },
+                            { title: 'Veneración (Dulía/Hiperdulía)', items: ['Hiperdulía: Devoción singular a María', 'Dulía: Honor a los Santos y Ángeles'], refs: ['CIC 971', 'CIC 2132'] },
+                            { title: 'Piedad Popular y Devociones', items: ['Santo Rosario (CIC 971, 2678)', 'Vía Crucis (CIC 1674)', 'Angelus', 'Letanías (ej. Divina Misericordia)'], refs: ['CIC 1674', 'CIC 2678'] },
+                            { title: 'Liturgia Oficial', items: ['Culto público íntegro', 'Participación de la Iglesia'], refs: ['CIC 1069', 'SC 7'] }
+                        ]
+                    }
+                },
+                {
+                    id: 'liturgia',
+                    title: 'LITURGIA',
+                    subtitle: 'La obra de Cristo y de la Iglesia',
+                    x: 250,
+                    y: 0,
+                    color: 'bg-blue-100 border-blue-500 text-blue-900',
+                    icon: <span className="text-5xl filter drop-shadow-sm leading-none select-none">📖</span>,
+                    mainRefs: [{ id: 'CIC 1069', type: 'cic' }, { id: 'SC 7', type: 'doc' }],
+                    content: {
+                        description: '', 
+                        sections: [
+                            { title: 'Sacramentos', items: ['Los 7 signos eficaces de la gracia'], refs: ['CIC 1113', 'SC 6'] },
+                            { title: 'Celebración de la Palabra', items: ['Preside: Diácono o laico delegado', 'Liturgia de la Palabra + Comunión', 'No hay consagración (No es Misa)'], refs: ['CIC 1570', 'SC 35'] },
+                            { title: 'Liturgia de las Horas', items: ['Santificación del tiempo', 'Laudes, Vísperas, Completas'], refs: ['CIC 1174', 'Sal 119, 164'] },
+                            { title: 'Año Litúrgico', items: ['Adviento, Navidad, Cuaresma, Pascua, Tiempo Ordinario'], refs: ['CIC 1163'] },
+                            { 
+                                title: 'Sacramentales', 
+                                items: [
+                                    'Signos sagrados instituidos por la Iglesia', // 1677
+                                    'Expresan efectos espirituales', // 1667
+                                    'Preparan a recibir la gracia', // 1670
+                                    'Exorcismos', // 1673
+                                    'Santificación por la Palabra y Oración' // SE
+                                ], 
+                                refs: ['CIC 1677', 'CIC 1667', 'CIC 1670', 'CIC 1673', '1 Tim 4, 5'] 
+                            },
+                            { title: 'Exequias', items: ['Misterio pascual en la muerte', 'Oración por los difuntos'], refs: ['CIC 1684', 'CIC 1688', '1 Tes 4, 14'] }
+                        ]
+                    }
+                },
+                {
+                    id: 'sacramentos',
+                    title: 'SACRAMENTOS',
+                    subtitle: 'Los 7 explícitos',
+                    x: 0,
+                    y: 250,
+                    color: 'bg-emerald-100 border-emerald-500 text-emerald-900',
+                    icon: <span className="text-5xl filter drop-shadow-sm leading-none tracking-tighter select-none">✝️🕊️</span>,
+                    mainRefs: [{ id: 'CIC 1113', type: 'cic' }],
+                    content: {
+                        description: '', 
+                        sections: [
+                            { title: 'Iniciación Cristiana', items: ['Bautismo', 'Confirmación', 'Eucaristía'], refs: ['CIC 1213', 'Mt 28, 19', 'CIC 1285', 'Hch 8, 17', 'CIC 1322', 'Lc 22, 19'] },
+                            { title: 'Curación', items: ['Penitencia / Reconciliación', 'Unción de los enfermos'], refs: ['CIC 1422', 'Jn 20, 23', 'CIC 1499', 'Sant 5, 14'] },
+                            { title: 'Servicio a la Comunidad', items: ['Orden Sacerdotal', 'Matrimonio'], refs: ['CIC 1536', 'CIC 1601', 'Ef 5, 31-32'] }
+                        ]
+                    }
+                },
+                {
+                    id: 'oracion',
+                    title: 'ORACIÓN',
+                    subtitle: '', 
+                    x: -250,
+                    y: 0,
+                    color: 'bg-indigo-100 border-indigo-500 text-indigo-900',
+                    icon: <span className="text-5xl filter drop-shadow-sm leading-none select-none">🙏</span>,
+                    mainRefs: [{ id: 'CIC 2558', type: 'cic' }],
+                    content: {
+                        description: 'Trato de amistad con quien sabemos nos ama.',
+                        sections: [
+                            { title: 'La Oración del Señor', items: ['Padre Nuestro: Resumen de todo el Evangelio', 'Modelo de toda oración'], refs: ['CIC 2759', 'Mt 6, 9-13'] },
+                            { title: 'Litúrgica', items: ['Epiclesis (Invocación al Espíritu Santo)', 'OF (Oficio Divino / Liturgia de las Horas)'], refs: ['CIC 1083'] },
+                            { title: 'Personal: Vocal', items: ['Oraciones con palabras', 'Diálogo confiado'], refs: ['CIC 2700', 'Mt 6, 7'] },
+                            { title: 'Personal: Meditación', items: ['Búsqueda reflexiva', 'Lectio Divina', 'Uso del pensamiento e imaginación'], refs: ['CIC 2705', 'CIC 2708', 'Lc 2, 19'] }, 
+                            { title: 'Personal: Contemplación', items: ['Mirada de fe fija en Jesús', 'Escucha silenciosa', 'Unión íntima'], refs: ['CIC 2709', 'Sal 27, 8'] },
+                            { title: 'Expresiones de Piedad Popular', items: ['Santo Rosario (Meditación de Misterios)', 'El Angelus (Encarnación)', 'Avemaría', 'Vía Crucis'], refs: ['CIC 2678', 'CIC 1674'] }
+                        ]
+                    }
+                }
+            ];
+
+            const handleCitationClick = (refId, e) => {
+                e.stopPropagation();
+                const text = citationDatabase[refId] || "Texto no disponible en esta demo interactiva.";
+                let type = "Referencia";
+                if (refId.startsWith("CIC")) type = "Catecismo de la Iglesia Católica";
+                else if (refId.startsWith("SC") || refId.startsWith("LG")) type = "Documento Conciliar (Vaticano II)";
+                else type = "Sagrada Escritura (Biblia de Jerusalén / CEE)";
+
+                setSelectedCitation({ id: refId, text, type });
+            };
+
+            // --- COMPONENTE MINI-MAPA FINALMENTE CORREGIDO ---
+            const TheologicalMiniMap = () => {
+                const isSelected = (id) => activeNode?.id === id;
+                const getStrokeColor = (id, base) => isSelected(id) ? base : '#94a3b8'; // Color base más visible
+                const getStrokeWidth = (id) => isSelected(id) ? 4 : 2;
+                const getOpacity = (id) => !activeNode ? 0.6 : isSelected(id) ? 1 : 0.4;
+
+                const containerClasses = isMapExpanded 
+                    ? "fixed inset-0 z-[100] bg-white/98 backdrop-blur-xl flex flex-col items-center justify-center p-8 cursor-pointer animate-in fade-in zoom-in duration-300"
+                    : "absolute bottom-6 right-6 bg-white shadow-2xl rounded-3xl border border-slate-200 z-[60] flex flex-col items-center p-4 cursor-pointer hover:scale-105 transition-all duration-300";
+
+                return (
+                    <div className={containerClasses} onClick={() => setIsMapExpanded(!isMapExpanded)}>
+                        <h4 className={`uppercase font-black tracking-widest text-slate-800 mb-6 flex items-center gap-3 select-none ${isMapExpanded ? 'text-3xl' : 'text-[11px] mb-2 gap-1'}`}>
+                            <Icon name="map" size={isMapExpanded ? 36 : 14} className="text-blue-600" />
+                            Vista Teológica
+                        </h4>
+                        
+                        <div className="relative">
+                            <svg width={isMapExpanded ? '70vmin' : 130} height={isMapExpanded ? '70vmin' : 130} viewBox="0 0 120 120" className="overflow-visible">
+                                {/* CULTO */}
+                                <circle cx="60" cy="60" r="58" fill="none" 
+                                    stroke={getStrokeColor('culto', '#f59e0b')} 
+                                    strokeWidth={getStrokeWidth('culto')} 
+                                    style={{opacity: getOpacity('culto'), transition: 'all 0.4s'}} />
+                                <text x="60" y="12" textAnchor="middle" fontSize={isMapExpanded ? 4 : 9} fill="#92400e" className="font-bold select-none pointer-events-none" style={{opacity: getOpacity('culto')}}>CULTO</text>
+
+                                {/* LITURGIA */}
+                                <circle cx="60" cy="65" r="40" fill="none" 
+                                    stroke={getStrokeColor('liturgia', '#3b82f6')} 
+                                    strokeWidth={getStrokeWidth('liturgia')} 
+                                    style={{opacity: getOpacity('liturgia'), transition: 'all 0.4s'}} />
+                                <text x="60" y="38" textAnchor="middle" fontSize={isMapExpanded ? 3.5 : 7} fill="#1e40af" className="font-bold select-none pointer-events-none" style={{opacity: getOpacity('liturgia')}}>LITURGIA</text>
+
+                                {/* SACRAMENTOS */}
+                                <circle cx="60" cy="75" r="20" fill="none" 
+                                    stroke={getStrokeColor('sacramentos', '#10b981')} 
+                                    strokeWidth={getStrokeWidth('sacramentos')} 
+                                    style={{opacity: getOpacity('sacramentos'), transition: 'all 0.4s'}} />
+                                <text x="60" y="80" textAnchor="middle" fontSize={isMapExpanded ? 3.5 : 7} fill="#065f46" className="font-bold select-none pointer-events-none" style={{opacity: getOpacity('sacramentos')}}>SACRAMENTOS</text>
+
+                                {/* ORACIÓN */}
+                                <ellipse cx="60" cy="60" rx="30" ry="55" transform="rotate(45 60 60)" fill="none" 
+                                    stroke={getStrokeColor('oracion', '#6366f1')} 
+                                    strokeWidth={getStrokeWidth('oracion')} 
+                                    strokeDasharray={isSelected('oracion') ? "0" : "3,2"}
+                                    style={{opacity: getOpacity('oracion'), transition: 'all 0.4s'}} />
+                                <text x="95" y="60" textAnchor="middle" fontSize={isMapExpanded ? 3.5 : 7} fill="#3730a3" className="font-bold select-none pointer-events-none" style={{opacity: getOpacity('oracion')}}>ORACIÓN</text>
+                            </svg>
+                        </div>
+                        
+                        {!isMapExpanded && (
+                             <div className="mt-2 text-[9px] font-bold text-blue-500 animate-pulse text-center">
+                                <Icon name="maximize" size={10} className="inline mr-1" /> Expandir
+                            </div>
+                        )}
+                        
+                        {isMapExpanded && (
+                             <div className="mt-8 text-sm font-bold text-slate-400 animate-pulse text-center">
+                                Toca cualquier lugar para cerrar
+                            </div>
+                        )}
+                    </div>
+                );
+            };
+
+            const getTransformStyle = () => {
+                if (!activeNode) return { transform: 'translate(0px, 0px) scale(0.65)' };
+                const scale = 2.5; 
+                return { transform: `translate(${-activeNode.x * scale}px, ${-activeNode.y * scale}px) scale(${scale})` };
+            };
+
+            return (
+                <div className="w-full h-screen bg-slate-50 relative overflow-hidden font-sans text-slate-800 select-none">
+                    
+                    {/* Header */}
+                    <div className="absolute top-0 left-0 w-full p-6 flex justify-between items-start z-50 pointer-events-none">
+                        <div className="bg-white/95 backdrop-blur-md shadow-xl rounded-2xl p-5 pointer-events-auto border-l-8 border-amber-500 max-w-sm">
+                            <h1 className="text-2xl font-black text-slate-900 leading-tight">Mapa de la Vida Cristiana</h1>
+                            <p className="text-sm text-slate-500 mt-2 font-medium">Basado en el Catecismo de la Iglesia Católica (CIC).</p>
+                        </div>
+                         <div className="bg-blue-900 text-white px-4 py-2 rounded-full shadow-lg pointer-events-auto flex items-center gap-2">
+                            <Icon name="info" size={16} />
+                            <span className="text-xs md:text-sm font-semibold">CIC = Catecismo | SC = Sacrosanctum Concilium</span>
+                        </div>
+                    </div>
+
+                    <TheologicalMiniMap />
+
+                    {/* Intro Modal */}
+                    {showIntro && (
+                        <div className="absolute inset-0 z-[60] flex items-center justify-center bg-slate-900/80 backdrop-blur-md p-4">
+                            <div className="bg-white p-10 rounded-3xl shadow-2xl max-w-md text-center animate-in zoom-in duration-300">
+                                <div className="text-7xl mb-6">🙏</div>
+                                <h2 className="text-3xl font-black mb-4">Navegación Teológica</h2>
+                                <p className="text-slate-600 mb-8 text-lg leading-relaxed">
+                                    Haz clic en los círculos mayores para navegar. El mini-mapa en la esquina inferior te mostrará la jerarquía activa.
+                                </p>
+                                <button onClick={() => setShowIntro(false)} className="bg-blue-600 text-white px-10 py-4 rounded-2xl font-black text-xl shadow-lg transition-transform active:scale-95">Comenzar</button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Citation Modal */}
+                    {selectedCitation && (
+                        <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setSelectedCitation(null)}>
+                            <div className="bg-white rounded-3xl shadow-2xl max-w-xl w-full overflow-hidden animate-in zoom-in duration-200" onClick={e => e.stopPropagation()}>
+                                <div className="bg-slate-50 px-8 py-6 border-b flex justify-between items-center">
+                                    <div className="flex items-center gap-2 text-blue-700 font-bold">
+                                         <Icon name="scrollText" size={24} />
+                                         <span className="font-black text-xl tracking-tight">{selectedCitation.id}</span>
+                                    </div>
+                                    <button onClick={() => setSelectedCitation(null)} className="text-slate-400 hover:text-red-500 bg-slate-200 p-2 rounded-full"><Icon name="x" size={24} /></button>
+                                </div>
+                                <div className="p-10 max-h-[60vh] overflow-y-auto">
+                                     <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">{selectedCitation.type}</span>
+                                    <p className="text-2xl text-slate-800 leading-snug font-serif italic font-medium">"{selectedCitation.text}"</p>
+                                </div>
+                                 <div className="bg-slate-50 px-6 py-3 border-t border-slate-100 text-right">
+                                    <button 
+                                        onClick={() => setSelectedCitation(null)}
+                                        className="text-sm font-semibold text-blue-600 hover:text-blue-800 px-4 py-2 rounded active:bg-blue-50"
+                                    >
+                                        Cerrar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Canvas Principal */}
+                    <div className="w-full h-full flex items-center justify-center bg-slate-50">
+                        <div className="transition-transform duration-1000 ease-in-out w-0 h-0 flex items-center justify-center" style={getTransformStyle()}>
+                            
+                            {/* Hub Central */}
+                            <div className="absolute flex items-center justify-center rounded-full bg-slate-900 text-white shadow-2xl z-0 ring-8 ring-slate-200" style={{ width: '130px', height: '130px' }}>
+                                <span className="text-[12px] font-black uppercase text-center tracking-tighter">Misterio<br/>de la Fe</span>
+                            </div>
+
+                            {/* Nodos */}
+                            {nodes.map((node) => {
+                                const isActive = activeNode?.id === node.id;
+                                return (
+                                    <div key={node.id} onClick={() => setActiveNode(isActive ? null : node)}
+                                        className={`absolute flex flex-col items-center transition-all duration-700 cursor-pointer rounded-full shadow-2xl border-4 ${node.color} ${isActive ? 'z-40 w-[320px] h-[320px] pt-8 ring-8 ring-white' : 'z-10 w-52 h-52 justify-center hover:scale-105 active:scale-95'}`}
+                                        style={{ left: node.x, top: node.y, marginLeft: isActive ? '-160px' : '-104px', marginTop: isActive ? '-160px' : '-104px' }}>
+                                        <div className={`text-6xl mb-3 transition-transform ${isActive ? 'scale-75' : ''}`}>{node.icon}</div>
+                                        <h3 className="font-black text-2xl tracking-tight leading-tight px-2 select-none">{node.title}</h3>
+                                        
+                                        {!isActive && (
+                                            <>
+                                                <p className="text-[10px] mt-1 opacity-80 px-2 min-h-[15px] select-none text-center font-bold">{node.subtitle}</p>
+                                                <div className="flex justify-center gap-1 mt-2 flex-wrap px-4">
+                                                    {node.mainRefs.map((ref, idx) => (
+                                                        <span key={idx} className="text-[8px] bg-white/60 px-2 py-0.5 rounded-full font-mono select-none font-bold">
+                                                            {ref.id}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            </>
+                                        )}
+
+                                        {isActive && (
+                                            <div className="px-8 mt-4 text-left overflow-y-auto custom-scrollbar h-full pb-12 animate-in fade-in w-full">
+                                                {node.content.description && (
+                                                    <p className="text-[10px] mb-3 italic border-l-2 border-current pl-2 opacity-75">
+                                                        "{node.content.description}"
+                                                    </p>
+                                                )}
+                                                {node.content.sections.map((sec, i) => (
+                                                    <div key={i} className="mb-3 bg-white/70 p-3 rounded-xl border border-white/50 shadow-sm">
+                                                        <div className="flex flex-wrap justify-between items-start mb-1 gap-1">
+                                                            <h4 className="text-[10px] font-black uppercase tracking-wider text-slate-800">{sec.title}</h4>
+                                                            <div className="flex flex-wrap gap-1 justify-end">
+                                                                {sec.refs && sec.refs.map(refId => (
+                                                                    <button key={refId} onClick={(e) => handleCitationClick(refId, e)} 
+                                                                        className={`text-[8px] px-1.5 py-0.5 rounded shadow-sm border font-bold transition-all hover:scale-110 active:scale-95
+                                                                         ${refId.startsWith('CIC') ? 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100' : 'bg-blue-50 text-blue-800 border-blue-200 hover:bg-blue-100'}`}>
+                                                                        {refId}
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                        <ul className="space-y-1 list-disc list-inside">
+                                                            {sec.items.map((item, j) => <li key={j} className="text-[9px] font-bold text-slate-700 leading-tight pl-1 marker:text-slate-400">{item}</li>)}
+                                                        </ul>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* Botón Volver */}
+                    {activeNode && (
+                        <button onClick={() => setActiveNode(null)} className="absolute bottom-12 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white px-8 py-4 rounded-3xl flex items-center gap-3 shadow-2xl animate-in fade-in hover:bg-slate-800 font-black text-lg transition-transform active:scale-95">
+                            <Icon name="arrowLeft" size={22} /> <span>Regresar al Centro</span>
+                        </button>
+                    )}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<CatechismPrezi />);
+    </script>
+</body>
+</html>
